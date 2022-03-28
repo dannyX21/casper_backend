@@ -10,6 +10,8 @@ SUPPORTED_EXTENSIONS = {'xls', 'xlsx',}
 class FeedSerializer(serializers.ModelSerializer):
     url = serializers.URLField(required=False, write_only=True)
     uploaded_by = serializers.SerializerMethodField()
+    buyers = serializers.SerializerMethodField()
+    planners = serializers.SerializerMethodField()
 
     class Meta:
         model = Feed
@@ -18,6 +20,8 @@ class FeedSerializer(serializers.ModelSerializer):
             'file',
             'filename',
             'url',
+            'buyers',
+            'planners',
             'uploaded_by',
             'created_at',
             'updated_at',
@@ -49,6 +53,16 @@ class FeedSerializer(serializers.ModelSerializer):
             return serializer.data
 
         return None
+
+    def get_buyers(self, instance):
+        buyers = instance.get_distinct_buyers()
+        serializer = BuyerSerializer(buyers, many=True, context=self.context)
+        return serializer.data
+
+    def get_planners(self, instance):
+        planners = instance.get_distinct_planners()
+        serializer = PlannerSerializer(planners, many=True, context=self.context)
+        return serializer.data
 
 
 class LineSerializer(serializers.ModelSerializer):

@@ -1,10 +1,13 @@
 import re
+from base64 import b64encode
 from datetime import datetime, timedelta
 from decimal import Decimal
+from easy_pdf.rendering import render_to_pdf
 from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
+from django.shortcuts import get_object_or_404
 from django.utils import dateparse
 from rest_framework import mixins, viewsets, status, filters
 from rest_framework.decorators import action
@@ -14,6 +17,7 @@ from orders.models import Line, Buyer, Planner, Summary, Feed
 from orders.serializers import FeedSerializer, LineSerializer, LineShortSerializer, \
     SummarySerializer, BuyerSerializer, PlannerSerializer
 from orders.filters import LineFilter
+from orders.tasks import generate_summary_context
 
 kit_re = re.compile(r'^EZ(?:C5E|C6|C6A|RD6|FP[RS|PM](?:6A|5E|6))\d{2,3}Q(\d{2,3})-\d{2}$')
 
@@ -29,6 +33,15 @@ class FeedView(mixins.ListModelMixin,
     ordering = ('-id')
     ordering_fields = '__all__'
     queryset = Feed.objects.all()
+
+    def get_queryset(self):
+        queryset = self.queryset.prefetch_related(
+            'lines',
+            'lines__buyer',
+            'lines__planner',
+            'uploaded_by',
+        )
+        return queryset
 
     def get_serializer_context(self):
         context = super(FeedView, self).get_serializer_context()
@@ -65,20 +78,19 @@ class FeedView(mixins.ListModelMixin,
                 summary_dict = {}
                 ws = wb.worksheets[0]
                 for (index, row) in enumerate(ws.rows):
-                    site = row[9].value
-                    confirmed_shipping = row[7].value
+                    site = row[11].value
+                    confirmed_shipping = row[9].value
                     if site != '104-CA' or confirmed_shipping is None:
                         continue
 
-                    quantity = int(float(row[3].value))
-                    buyer_code = row[16].value
-                    planner_code = row[17].value
-                    item_number = row[1].value
+                    quantity = int(float(row[5].value))
+                    buyer_code = row[18].value
+                    planner_code = row[19].value
+                    item_number = row[2].value
                     if buyer_code == 'ORT':
                         m = kit_re.match(item_number)
                         if m is not None:
                             extended_quantity = quantity * int(m.group(1))
-                            print(f'P/N: {item_number}, quantity: {quantity}, extended_quantity: {extended_quantity}')
 
                         else:
                             extended_quantity = quantity
@@ -89,26 +101,26 @@ class FeedView(mixins.ListModelMixin,
                     line = Line.objects.create(
                         sales_order_number = row[0].value,
                         item_number = item_number,
-                        revision = row[2].value,
+                        revision = row[4].value,
                         quantity = quantity,
                         extended_quantity = extended_quantity,
-                        unit = row[4].value,
-                        requested_receipt = row[5].value,
-                        requested_shipping = row[6].value,
-                        confirmed_shipping = row[7].value,
-                        note = row[8].value,
+                        unit = row[6].value,
+                        requested_receipt = row[7].value,
+                        requested_shipping = row[8].value,
+                        confirmed_shipping = confirmed_shipping,
+                        note = row[10].value,
                         site = site,
-                        ship_to_name = row[10].value,
-                        unit_price = Decimal(row[13].value),
-                        net_amount = Decimal(row[14].value),
-                        customer_reference = row[15].value,
+                        ship_to_name = row[12].value,
+                        unit_price = Decimal(row[15].value),
+                        net_amount = Decimal(row[16].value),
+                        customer_reference = row[17].value,
                         buyer = buyers[buyer_code],
                         planner = planners[planner_code] if planner_code is not None else planners[buyer_code],
-                        sales_taker = row[18].value,
-                        purchase_order_number = row[19].value,
-                        original_commit_date = row[20].value,
-                        created_at = row[21].value,
-                        updated_at = row[22].value,
+                        sales_taker = row[20].value,
+                        purchase_order_number = row[21].value,
+                        original_commit_date = row[22].value,
+                        created_at = row[23].value,
+                        updated_at = row[24].value,
                         feed=feed
                     )
                     if line.confirmed_shipping is not None:
@@ -119,7 +131,6 @@ class FeedView(mixins.ListModelMixin,
                             summary_dict[start_date][line.buyer]['extended_quantity'] += extended_quantity
 
                         except KeyError as e:
-                            print(f'Exception: {str(e)}')
                             if str(e).startswith('datetime'):
                                 summary_dict[start_date] = {line.buyer: {'quantity': quantity, 'extended_quantity': extended_quantity}}
 
@@ -150,7 +161,7 @@ class OrderView(mixins.ListModelMixin,
     queryset = Line.objects.all()
     filter_backends = (DjangoFilterBackend, filters.OrderingFilter,)
     filter_class = LineFilter
-    ordering_fields = '__all__'
+    ordering_fields = ('sales_order_number', 'purchase_order_number', 'confirmed_shipping', 'item_number', 'note', 'buyer__code', 'planner__code',)
     ordering = ('id',)
     
     def get_serializer_context(self):
@@ -158,6 +169,7 @@ class OrderView(mixins.ListModelMixin,
         context['user'] = self.request.user
         if 'feed_pk' in self.kwargs:
             context['feed_pk'] = int(self.kwargs['feed_pk'])
+            context['feed'] = get_object_or_404(Feed, pk=context['feed_pk'])
 
         return context
 
@@ -178,6 +190,12 @@ class OrderView(mixins.ListModelMixin,
 
         return self.serializer_class
 
+    @action(detail=False, methods=('get',), url_path='export')
+    def export(self, request, **kwargs):
+        context = self.get_serializer_context()
+        orders_export = context['feed'].get_orders_export(query_params=request.query_params)
+        return Response({'report': orders_export}, status.HTTP_200_OK)
+
 
 class SummaryView(mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
@@ -192,6 +210,7 @@ class SummaryView(mixins.ListModelMixin,
         context['user'] = self.request.user
         if 'feed_pk' in self.kwargs:
             context['feed_pk'] = int(self.kwargs['feed_pk'])
+            context['feed'] = get_object_or_404(Feed, pk=context['feed_pk'])
 
         return context
 
@@ -202,6 +221,12 @@ class SummaryView(mixins.ListModelMixin,
             queryset = queryset.filter(feed__id=context['feed_pk'])
 
         return queryset.order_by('start_date', 'buyer__code')
+
+    @action(detail=False, methods=('get',), url_path='export')
+    def export(self, request, **kwargs):
+        context = self.get_serializer_context()
+        summary_export = context['feed'].get_summary_export()
+        return Response({'report': summary_export,}, status.HTTP_200_OK)
 
 
 class BuyerView(mixins.ListModelMixin,

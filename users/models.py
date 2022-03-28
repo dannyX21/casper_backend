@@ -7,7 +7,7 @@ class User(AbstractBaseUser):
     last_name = models.CharField(max_length=64, null=False, blank=False)
     email = models.EmailField(max_length=128, null=False, blank=False, unique=True)
     is_staff = models.BooleanField(null=False, blank=False, default=False)
-    is_active = models.BooleanField(null=False, blank=False, default=True)
+    is_active = models.BooleanField(null=False, blank=False, default=False)
     is_admin = models.BooleanField(null=False, default=False, blank=True)
     is_superuser = models.BooleanField(null=False, blank=False, default=False)
     last_login = models.DateTimeField(null=True, blank=True)

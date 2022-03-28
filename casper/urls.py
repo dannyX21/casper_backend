@@ -17,6 +17,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from health.views import HealthView
 
 
 urlpatterns = [
@@ -25,6 +26,7 @@ urlpatterns = [
     path(r'api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path(r'api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path(r'api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+    path(r'ping/', HealthView.as_view(), name='health'),
     path(r'', include('users.urls')),
     path(r'', include('orders.urls')),
 ]

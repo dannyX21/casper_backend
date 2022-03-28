@@ -55,10 +55,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     # third-party libraries
     'corsheaders',
     'rest_framework',
     'django_filters',
+    'easy_pdf',
     # local apps
     'users.apps.UsersConfig',
     'orders.apps.OrdersConfig',
@@ -81,7 +83,7 @@ ROOT_URLCONF = 'casper.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [f'{BASE_DIR}/templates',],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

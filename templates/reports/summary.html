@@ -1,0 +1,131 @@
+{% extends "easy_pdf/base.html" %}
+{% load humanize %}
+<html>
+<head>
+  {% block extra_style %}
+    <style type="text/css">
+      @page {
+        margin: 0.25in;
+      }
+      * {
+        font-family: "Arial";
+        line-height: 9px;
+      }
+      .summary-info {
+        text-align: center;
+        padding-top: 0px;
+      }
+      .summary-info .header {
+        font-size: 20px;
+        margin-bottom: 5px;
+      }
+      .sub-header {
+        padding: 5px 3px;
+        font-size: 12px; 
+      }
+      .sub-header span {
+        font-size: 14px;
+        display: inline-block;
+        margin-bottom: 5px;
+      }
+      .summary-detail {
+        margin-top: 10px;
+      }
+      .summary-detail th {
+        padding: 3px 10px;
+        text-align: center;
+        font-size: 10px;
+      }
+      .summary-detail td {
+        font-size: 10px;
+      }
+      .center {
+        text-align: center;
+      }
+      .number {
+        text-align: right;
+      }
+      .record {
+        padding-bottom: 10px;
+      }
+      .record, .record td, .record th {
+        border: 1px solid black;
+        border-collapse: collapse;
+        padding: 3px;
+      }
+      .record-period {
+        font-size: 14px;
+        text-align: center;
+        margin-top: 5px;
+        margin-bottom: 0px;
+      }
+      .page-break{
+        page-break-after: always;
+      }
+    </style>
+  {% endblock %}
+</head>
+<body>
+{% block content %}
+  <div class="summary-info">
+    <p class="header">Orders Summary</p>
+    <div class="sub-header">
+      <span>Stewart Connector Systems</span>
+      <br>
+        Imported by {{ uploaded_by}} @ {{ uploaded_at }}
+      </div>
+    </div>
+    <div class="summary-detail">
+      <table>
+        <tbody>
+          <tr>
+      {% for key, value in summary.items %}
+            <td style="width: 25%; padding: 5px;">
+              <div>
+                <span class="record-period"><strong>{{ value.start_date }}</strong> - <strong>{{ value.end_date }}</strong></span>
+                <table class="record">
+                  <thead>
+                    <tr>
+                      <th class="center">Buyer</th>
+                      <th class="center">Qty</th>
+                      <th class="center">Ext. Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  {% for k, v in value.summary.items %}
+                    <tr class="center">
+                      <td>{{ k }}</td>
+                      <td class="number">{{ v.quantity|intcomma }}</td>
+                      <td class="number">{{ v.extended_quantity|intcomma }}</td>
+                    </tr>
+                  {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          {% if forloop.counter|divisibleby:4 %}
+            <td>&nbsp;</td>
+          </tr>
+          <tr>
+          {% endif %}
+          {% if forloop.counter|divisibleby:12 %}
+          <td>&nbsp;</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="page-break"></div>
+  <div class="summary-detail">
+    <table>
+      <tbody>
+        <tr>
+          {% endif %}
+      {% endfor %}
+            <td>&nbsp;</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+{% endblock %}
+</body>
+</html>

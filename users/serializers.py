@@ -1,8 +1,10 @@
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from users.utils import password_check
 from users.models import User
 
 class UserSerializer(serializers.ModelSerializer):
+    pending_requests = serializers.SerializerMethodField()
     class Meta:
         model = User
         fields = (
@@ -10,9 +12,14 @@ class UserSerializer(serializers.ModelSerializer):
           'email',
           'first_name',
           'last_name',
+          'is_active',
+          'is_staff',
+          'is_admin',
+          'is_superuser',
           'date_joined',
+          'pending_requests',
         )
-        read_only_fields = ('date_joined',)
+        read_only_fields = ('date_joined', 'is_active', 'is_staff', 'is_admin',)
         extra_kwargs = {
             'password': {'write_only': True},
         }
@@ -39,6 +46,9 @@ class UserSerializer(serializers.ModelSerializer):
 
                 validated_data['password'] = password
 
+            else:
+                raise ValidationError('Password is required!')
+
         elif new_password is not None:
             if password is None:
                 raise serializers.ValidationError('Must provide current password!')
@@ -51,6 +61,9 @@ class UserSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(', '.join((f'{key}: {"true" if value else "false"}' for(key, value) in password_validation.items())))
 
             validated_data['password'] = new_password
+
+        if not data.get('email').lower().strip().endswith('belf.com'):
+            raise serializers.ValidationError('Only email addresses from "belf.com" domain are allowed!')
 
         return validated_data
 
@@ -69,3 +82,11 @@ class UserSerializer(serializers.ModelSerializer):
             instance.set_password(password)
 
         return super(UserSerializer, self).update(instance, validated_data)
+
+    def get_pending_requests(self, instance):
+        if instance.is_admin:
+            requests = User.objects.filter(is_active=False, is_admin=False)
+            serializer = UserSerializer(requests[:5], many=True, context=self.context)
+            return serializer.data
+
+        return None

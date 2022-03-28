@@ -1,7 +1,6 @@
 from datetime import datetime, date
 from django.core.exceptions import FieldError
 from django_filters.rest_framework import FilterSet, NumberFilter, BaseInFilter, CharFilter
-from orders.models import Line
 
 class IntegerListFilter(BaseInFilter, NumberFilter):
     pass
@@ -13,7 +12,7 @@ class LineFilter(FilterSet):
     order_by_field = 'order_by'
     id = IntegerListFilter(field_name='id', lookup_expr='in')
     sales_order_number = ListFilter(field_name='sales_order_number', lookup_expr='in')
-    purchase_order_number = ListFilter(field_name='sales_order_number', lookup_expr='in')
+    purchase_order_number = ListFilter(field_name='purchase_order_number', lookup_expr='in')
     item_number = CharFilter(field_name='item_number', lookup_expr='icontains')
     buyer = ListFilter(field_name='buyer__code', lookup_expr='in')
     planner = ListFilter(field_name='planner__code', lookup_expr='in')

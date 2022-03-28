@@ -1,0 +1,93 @@
+{% extends "easy_pdf/base.html" %}
+{% load humanize %}
+<html>
+  <head>
+    {% block extra_style %}
+    <style type="text/css">
+      @page {
+        margin: 0.5in;
+      }
+      * {
+        font-family: "Arial";
+        line-height: 8px;
+      }
+      .record, .record td, .record th {
+        border: 1px solid black;
+        border-collapse: collapse;
+        padding: 3px;
+      }
+      .center {
+        text-align: center;
+      }
+      .number {
+        text-align: right;
+      }
+      .page-break{
+        page-break-after: always;
+      }
+    </style>
+    {% endblock %}
+  </head>
+  <body>
+  {% block content %}
+    <div>
+      <table class="record">
+        <thead>
+          <tr>
+            <th style="width: 10%;">SO#</th>
+            <th style="width: 18%;">P/N</th>
+            <th style="width: 4%;">Rev.</th>
+            <th style="width: 7%;">Qty</th>
+            <th style="width: 7%;">Ext. Qty</th>
+            <th style="width: 4%;">UM</th>
+            <th style="width: 9%;">Ship Date</th>
+            <th style="width: 15%;">PO#</th>
+            <th style="width: 5%;">Buyer</th>
+            <th style="width: 5%;">Planner</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for line in lines %}
+          <tr>
+            <td class="center">{{line.sales_order_number}}</td>
+            <td class="center">{{line.item_number}}</td>
+            <td class="center">{{line.revision}}</td>
+            <td class="number">{{line.quantity|intcomma}}</td>
+            <td class="number">{{line.extended_quantity|intcomma}}</td>
+            <td class="center">{{line.unit}}</td>
+            <td class="center">{{line.confirmed_shipping|date:"m/d/Y"}}</td>
+            <td class="center">{{line.purchase_order_number}}</td>
+            <td class="center">{{line.buyer.code}}</td>
+            <td class="center">{{line.planner.code}}</td>
+            <td>{{line.note|truncatechars:15}}</td>
+          </tr>
+          {% if forloop.counter|divisibleby:44 %}
+        </tbody>
+      </table>
+      <div class="page-break"></div>
+      <table class="record">
+        <thead>
+          <tr>
+            <th style="width: 10%;">SO#</th>
+            <th style="width: 18%;">P/N</th>
+            <th style="width: 4%;">Rev.</th>
+            <th style="width: 7%;">Qty</th>
+            <th style="width: 7%;">Ext. Qty</th>
+            <th style="width: 4%;">UM</th>
+            <th style="width: 9%;">Ship Date</th>
+            <th style="width: 15%;">PO#</th>
+            <th style="width: 5%;">Buyer</th>
+            <th style="width: 5%;">Planner</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endblock %}
+  </body>
+</html>
